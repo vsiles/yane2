@@ -1,5 +1,5 @@
-use super::{Cpu, AddrMode};
 use super::Bus;
+use super::{AddrMode, Cpu};
 
 #[derive(PartialEq)]
 pub enum Kind {
@@ -25,7 +25,9 @@ impl AddrMode for IMP {
         0
     }
 
-    fn kind(&self, ) -> Kind { Kind::IMP }
+    fn kind(&self) -> Kind {
+        Kind::IMP
+    }
 }
 
 pub struct IMM {}
@@ -35,7 +37,9 @@ impl AddrMode for IMM {
         cpu.pc += 1;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::IMM }
+    fn kind(&self) -> Kind {
+        Kind::IMM
+    }
 }
 
 pub struct ZP0 {}
@@ -45,7 +49,9 @@ impl AddrMode for ZP0 {
         cpu.pc += 1;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::ZP0 }
+    fn kind(&self) -> Kind {
+        Kind::ZP0
+    }
 }
 
 pub struct ZPX {}
@@ -57,7 +63,9 @@ impl AddrMode for ZPX {
         cpu.pc += 1;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::ZPX }
+    fn kind(&self) -> Kind {
+        Kind::ZPX
+    }
 }
 
 pub struct ZPY {}
@@ -69,7 +77,9 @@ impl AddrMode for ZPY {
         cpu.pc += 1;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::ZPY }
+    fn kind(&self) -> Kind {
+        Kind::ZPY
+    }
 }
 
 pub struct REL {}
@@ -83,29 +93,33 @@ impl AddrMode for REL {
         }
         0
     }
-    fn kind(&self, ) -> Kind { Kind::REL }
+    fn kind(&self) -> Kind {
+        Kind::REL
+    }
 }
 
 pub struct ABS {}
 impl AddrMode for ABS {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let low : u16 = bus.read(cpu.pc) as u16;
+        let low: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let high : u16 = bus.read(cpu.pc) as u16;
+        let high: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         cpu.addr_abs = (high << 8) | low;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::ABS }
+    fn kind(&self) -> Kind {
+        Kind::ABS
+    }
 }
 
 pub struct ABX {}
 impl AddrMode for ABX {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let low : u16 = bus.read(cpu.pc) as u16;
+        let low: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let high : u16 = bus.read(cpu.pc) as u16;
+        let high: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         cpu.addr_abs = (high << 8) | low;
@@ -115,15 +129,17 @@ impl AddrMode for ABX {
         let extra_clock_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
         extra_clock_cycle as u8
     }
-    fn kind(&self, ) -> Kind { Kind::ABX }
+    fn kind(&self) -> Kind {
+        Kind::ABX
+    }
 }
 
 pub struct ABY {}
 impl AddrMode for ABY {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let low : u16 = bus.read(cpu.pc) as u16;
+        let low: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let high : u16 = bus.read(cpu.pc) as u16;
+        let high: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         cpu.addr_abs = (high << 8) | low;
@@ -133,55 +149,61 @@ impl AddrMode for ABY {
         let extra_clock_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
         extra_clock_cycle as u8
     }
-    fn kind(&self, ) -> Kind { Kind::ABY }
+    fn kind(&self) -> Kind {
+        Kind::ABY
+    }
 }
 
 pub struct IND {}
 impl AddrMode for IND {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let ptr_low : u16 = bus.read(cpu.pc) as u16;
+        let ptr_low: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
-        let ptr_high : u16 = bus.read(cpu.pc) as u16;
+        let ptr_high: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
-        let ptr : u16 = (ptr_high << 8) | ptr_low;
+        let ptr: u16 = (ptr_high << 8) | ptr_low;
 
         if ptr_low == 0x00FF {
             // page boundary hardware bug
-            let low : u16 = bus.read(ptr) as u16;
+            let low: u16 = bus.read(ptr) as u16;
             let high: u16 = bus.read(ptr & 0xFF00) as u16;
             cpu.addr_abs = (high << 8) | low
         } else {
-            let low : u16 = bus.read(ptr) as u16;
+            let low: u16 = bus.read(ptr) as u16;
             let high: u16 = bus.read(ptr + 1) as u16;
             cpu.addr_abs = (high << 8) | low
         }
         0
     }
-    fn kind(&self, ) -> Kind { Kind::IND }
+    fn kind(&self) -> Kind {
+        Kind::IND
+    }
 }
 
 pub struct IZX {}
 impl AddrMode for IZX {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let ptr : u16 = bus.read(cpu.pc) as u16;
+        let ptr: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         // ptr is really 8 bits, and x too, so ptr + x + 1 can't overflow in u16
-        let ptr_x : u16 = ptr + (cpu.x as u16);
+        let ptr_x: u16 = ptr + (cpu.x as u16);
         let low: u16 = bus.read(ptr_x) as u16;
         let high: u16 = bus.read(ptr_x + 1) as u16;
 
         cpu.addr_abs = (high << 8) | low;
         0
     }
-    fn kind(&self, ) -> Kind { Kind::IZX }
+    fn kind(&self) -> Kind {
+        Kind::IZX
+    }
 }
 
 pub struct IZY {}
 impl AddrMode for IZY {
     fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8 {
-        let ptr : u16 = bus.read(cpu.pc) as u16;
+        let ptr: u16 = bus.read(cpu.pc) as u16;
         cpu.pc += 1;
 
         // ptr is really 8 bits, so ptr + x + 1 can't overflow in u16
@@ -192,7 +214,9 @@ impl AddrMode for IZY {
         cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.y as u16).0;
 
         let extra_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
-        return extra_cycle as u8
+        return extra_cycle as u8;
     }
-    fn kind(&self, ) -> Kind { Kind::IZY }
+    fn kind(&self) -> Kind {
+        Kind::IZY
+    }
 }

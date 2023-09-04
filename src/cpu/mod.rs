@@ -36,7 +36,7 @@ struct Opcode {
     name: String,
     addr_mode: Box<dyn AddrMode>,
     op: Box<dyn Operation>,
-    cycles: usize
+    cycles: usize,
 }
 
 pub struct Cpu {
@@ -110,7 +110,7 @@ impl Cpu {
     //             cycles: 0
     //         };
 
-    //         let Opcode{cycles, addr_mode, op, ..} = 
+    //         let Opcode{cycles, addr_mode, op, ..} =
     //             match self.opcodes.get(&opcode) {
     //                 None => &xxx,
     //                 Some(opcode) => opcode
@@ -130,8 +130,6 @@ impl Cpu {
     //     self.cycles -= 1;
     //     self.clock_count += 1;
     // }
-
-
 }
 
 #[cfg(test)]
