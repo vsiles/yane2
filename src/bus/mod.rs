@@ -5,7 +5,7 @@ const RAM_SIZE: usize = 64 * 1024;
 
 pub struct Bus {
     pub cpu: Cpu,
-    ram: [u8; RAM_SIZE],
+    pub ram: [u8; RAM_SIZE],
 }
 
 impl Bus {

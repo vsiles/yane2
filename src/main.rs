@@ -30,9 +30,18 @@ async fn main() {
         screen_height()
     );
 
-    let bus = Rc::new(RefCell::new(Bus::new()));
+    let mut bus = Bus::new();
+
+    setup_ram(&mut bus);
+
+    let bus = Rc::new(RefCell::new(bus));
     let ref_bus = Rc::downgrade(&bus);
     bus.borrow_mut().cpu.core.register_bus(ref_bus);
+
+    bus.borrow_mut().cpu.reset();
+
+    let disas = bus.borrow().cpu.disassemble(0x0000, 0xFFFF);
+
 
     // let image = Image::gen_image_color(w as u16, h as u16, RED);
     // let texture = Texture2D::from_image(&image);
@@ -48,10 +57,6 @@ async fn main() {
     };
 
     // just for test
-    let mut disas = BTreeMap::new();
-    for i in 0x6000..0x9000 {
-        disas.insert(i, format!("${:>04X}: BRK #$00 {{IMM}}", i));
-    }
 
     loop {
         if is_key_down(KeyCode::Q) || is_key_down(KeyCode::Escape) {
@@ -103,6 +108,23 @@ async fn main() {
 
         next_frame().await
     }
+}
+
+fn setup_ram(bus: &mut Bus) {
+    // TODO: implement proper ROM loading
+    // example program is from https://github.com/OneLoneCoder/olcNES
+
+    let program = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA".split(' ');
+    let mut addr = 0x8000;
+    for s in program {
+        let byte = u8::from_str_radix(s, 16).unwrap();
+        bus.ram[addr] = byte;
+        addr += 1;
+    }
+
+    // Set Reset Vector
+    bus.ram[0xFFFC] = 0x00;
+    bus.ram[0xFFFD] = 0x80;
 }
 
 async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
