@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 /// Almost everything in this files comes from NesDev: https://www.nesdev.org/wiki/CPU
 use bitflags::bitflags;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Weak;
 
 use crate::bus::Bus;
 
@@ -23,13 +25,13 @@ bitflags! {
 
 trait AddrMode {
     // Addressing modes return 1 if additional clock cycles are necessary
-    fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8;
+    fn run(&self, cpu: &mut CpuCore) -> u8;
     fn kind(&self) -> addr_modes::Kind;
 }
 
 trait Operation {
     // Some opcode requires additional clock cycles conditionally too
-    fn run(&self, cpu: &mut Cpu, bus: &Bus) -> u8;
+    fn run(&self, cpu: &mut CpuCore) -> u8;
 }
 
 struct Opcode {
@@ -39,7 +41,7 @@ struct Opcode {
     cycles: usize,
 }
 
-pub struct Cpu {
+pub struct CpuCore {
     pub a: u8,
     pub x: u8,
     pub y: u8,
@@ -54,20 +56,17 @@ pub struct Cpu {
     addr_rel: u16,
     opcode: u8,
 
-    opcodes: HashMap<u8, Opcode>,
-
     // Number of cycles left for the current instruction
     cycles: usize,
     // Total number of clock ticks from reset
     clock_count: usize,
+
+    // Link to the underlying bus
+    bus: Option<Weak<RefCell<Bus>>>,
 }
 
-impl Cpu {
-    pub fn new() -> Self {
-        let opcodes = HashMap::new();
-
-        // opcodes.insert(0, xxx);
-
+impl CpuCore {
+    fn new() -> Self {
         Self {
             a: 0,
             x: 0,
@@ -80,9 +79,33 @@ impl Cpu {
             addr_abs: 0,
             addr_rel: 0,
             opcode: 0,
-            opcodes,
             cycles: 0,
             clock_count: 0,
+            bus: None,
+        }
+    }
+
+    pub fn register_bus(&mut self, bus: Weak<RefCell<Bus>>) {
+        self.bus = Some(bus)
+    }
+
+    fn read(&self, addr: u16) -> u8 {
+        match &self.bus {
+            None => panic!("CPU/read: No Bus"),
+            Some(bus) => match bus.upgrade() {
+                None => panic!("CPU/read: Bus has been dropped"),
+                Some(bus) => bus.borrow().read(addr),
+            },
+        }
+    }
+
+    fn write(&self, addr: u16, value: u8) {
+        match &self.bus {
+            None => panic!("CPU/write: No Bus"),
+            Some(bus) => match bus.upgrade() {
+                None => panic!("CPU/write: Bus has been dropped"),
+                Some(bus) => bus.borrow_mut().write(addr, value),
+            },
         }
     }
 
@@ -93,43 +116,65 @@ impl Cpu {
     pub fn set_flag(&mut self, flag: Flags, on_off: bool) {
         self.status.set(flag, on_off);
     }
+}
 
-    // pub fn clock(&mut self, bus: &Bus) {
-    //     if self.cycles == 0 {
-    //         let opcode = bus.read(self.pc);
-    //         self.opcode = opcode;
+pub struct Cpu {
+    pub core: CpuCore,
+    opcodes: HashMap<u8, Opcode>,
+}
 
-    //         self.set_flag(Flags::U, true);
+impl Cpu {
+    pub fn new() -> Self {
+        let opcodes = HashMap::new();
 
-    //         self.pc += 1;
+        // opcodes.insert(0, xxx);
+        Self {
+            core: CpuCore::new(),
+            opcodes,
+        }
+    }
 
-    //         let xxx = Opcode {
-    //             name: "XXX".into(),
-    //             addr_mode: Box::new(addr_modes::IMP {}),
-    //             op: Box::new(operations::XXX {}),
-    //             cycles: 0
-    //         };
+    pub fn clock(&mut self) {
+        let Self { opcodes, core, .. } = self;
 
-    //         let Opcode{cycles, addr_mode, op, ..} =
-    //             match self.opcodes.get(&opcode) {
-    //                 None => &xxx,
-    //                 Some(opcode) => opcode
-    //             }
-    //         ;
-    //         self.cycles = *cycles;
+        if core.cycles == 0 {
+            let opcode = core.read(core.pc);
+            core.opcode = opcode;
 
-    //         let extra_cycle1 = addr_mode.run(self, bus);
-    //         let extra_cycle2 = op.run(self, bus);
+            core.set_flag(Flags::U, true);
 
-    //         self.cycles += (extra_cycle1 & extra_cycle2) as usize;
+            core.pc += 1;
 
-    //         // TODO:check if this is needed
-    //         // self.set_flag(Flags::U, true);
-    //     }
+            let xxx = Opcode {
+                name: "XXX".into(),
+                addr_mode: Box::new(addr_modes::IMP {}),
+                op: Box::new(operations::XXX {}),
+                cycles: 0,
+            };
 
-    //     self.cycles -= 1;
-    //     self.clock_count += 1;
-    // }
+            let Opcode {
+                cycles,
+                addr_mode,
+                op,
+                ..
+            } = match opcodes.get(&opcode) {
+                None => &xxx,
+                Some(opcode) => opcode,
+            };
+            core.cycles = *cycles;
+
+            let extra_cycle1 = addr_mode.run(core);
+            let extra_cycle2 = op.run(core);
+
+            core.cycles += (extra_cycle1 & extra_cycle2) as usize;
+
+            // TODO:check if this is needed
+            // core.set_flag(Flags::U, true);
+        }
+
+        core.cycles -= 1;
+        core.clock_count += 1;
+    }
 }
 
 #[cfg(test)]
@@ -138,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_get_empty_flag() {
-        let cpu = Cpu::new();
+        let cpu = CpuCore::new();
         assert_eq!(cpu.get_flag(Flags::C), false);
         assert_eq!(cpu.get_flag(Flags::Z), false);
         assert_eq!(cpu.get_flag(Flags::I), false);
@@ -151,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_set_get_flags() {
-        let mut cpu = Cpu::new();
+        let mut cpu = CpuCore::new();
         cpu.set_flag(Flags::C, true);
         cpu.set_flag(Flags::V, true);
         assert_eq!(cpu.get_flag(Flags::C), true);
@@ -166,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_set_get_flags2() {
-        let mut cpu = Cpu::new();
+        let mut cpu = CpuCore::new();
         cpu.set_flag(Flags::I | Flags::N, true);
         assert_eq!(cpu.get_flag(Flags::C), false);
         assert_eq!(cpu.get_flag(Flags::Z), false);

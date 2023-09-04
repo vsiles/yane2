@@ -1,6 +1,8 @@
 use crate::miniquad::log;
 use macroquad::prelude::*;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 mod bus;
 mod cpu;
@@ -28,7 +30,9 @@ async fn main() {
         screen_height()
     );
 
-    let bus = Bus::new();
+    let bus = Rc::new(RefCell::new(Bus::new()));
+    let ref_bus = Rc::downgrade(&bus);
+    bus.borrow_mut().cpu.core.register_bus(ref_bus);
 
     // let image = Image::gen_image_color(w as u16, h as u16, RED);
     // let texture = Texture2D::from_image(&image);
@@ -59,18 +63,27 @@ async fn main() {
         // texture.update(&image);
         // draw_texture(&texture, 0., 0., WHITE);
 
-        draw_ram(10.0, MAC_BORDER + 10.0, 0x0000, &bus, 16, 16, &font_params).await;
         draw_ram(
             10.0,
-            20.0 * H_STEP + 10.0,
-            0x8000,
-            &bus,
+            MAC_BORDER + 10.0,
+            0x0000,
+            &bus.borrow(),
             16,
             16,
             &font_params,
         )
         .await;
-        draw_cpu(600.0, MAC_BORDER + 10.0, &bus.cpu, &font_params).await;
+        draw_ram(
+            10.0,
+            20.0 * H_STEP + 10.0,
+            0x8000,
+            &bus.borrow(),
+            16,
+            16,
+            &font_params,
+        )
+        .await;
+        draw_cpu(600.0, MAC_BORDER + 10.0, &bus.borrow().cpu, &font_params).await;
         draw_code(
             600.0,
             MAC_BORDER + 10.0 + 7.0 * H_STEP,
@@ -110,7 +123,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "N",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::N) {
+        if cpu.core.get_flag(cpu::Flags::N) {
             green.clone()
         } else {
             red.clone()
@@ -121,7 +134,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "V",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::V) {
+        if cpu.core.get_flag(cpu::Flags::V) {
             green.clone()
         } else {
             red.clone()
@@ -132,7 +145,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "-",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::U) {
+        if cpu.core.get_flag(cpu::Flags::U) {
             green.clone()
         } else {
             red.clone()
@@ -143,7 +156,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "B",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::B) {
+        if cpu.core.get_flag(cpu::Flags::B) {
             green.clone()
         } else {
             red.clone()
@@ -154,7 +167,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "D",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::D) {
+        if cpu.core.get_flag(cpu::Flags::D) {
             green.clone()
         } else {
             red.clone()
@@ -165,7 +178,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "I",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::I) {
+        if cpu.core.get_flag(cpu::Flags::I) {
             green.clone()
         } else {
             red.clone()
@@ -176,7 +189,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "Z",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::Z) {
+        if cpu.core.get_flag(cpu::Flags::Z) {
             green.clone()
         } else {
             red.clone()
@@ -187,7 +200,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
         "C",
         pos,
         y,
-        if cpu.get_flag(cpu::Flags::C) {
+        if cpu.core.get_flag(cpu::Flags::C) {
             green.clone()
         } else {
             red.clone()
@@ -197,35 +210,35 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
     pos = y + H_STEP;
 
     draw_text_ex(
-        &format!("PC: ${:>04X}", cpu.pc),
+        &format!("PC: ${:>04X}", cpu.core.pc),
         x,
         pos,
         font_params.clone(),
     );
     pos += H_STEP;
     draw_text_ex(
-        &format!("A: ${:>02X} [{}]", cpu.a, cpu.a),
+        &format!("A: ${:>02X} [{}]", cpu.core.a, cpu.core.a),
         x,
         pos,
         font_params.clone(),
     );
     pos += H_STEP;
     draw_text_ex(
-        &format!("X: ${:>02X} [{}]", cpu.x, cpu.x),
+        &format!("X: ${:>02X} [{}]", cpu.core.x, cpu.core.x),
         x,
         pos,
         font_params.clone(),
     );
     pos += H_STEP;
     draw_text_ex(
-        &format!("Y: ${:>02X} [{}]", cpu.y, cpu.y),
+        &format!("Y: ${:>02X} [{}]", cpu.core.y, cpu.core.y),
         x,
         pos,
         font_params.clone(),
     );
     pos += H_STEP;
     draw_text_ex(
-        &format!("Stack P: ${:>04X}", cpu.sp),
+        &format!("Stack P: ${:>04X}", cpu.core.sp),
         x,
         pos,
         font_params.clone(),

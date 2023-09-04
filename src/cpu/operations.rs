@@ -1,9 +1,9 @@
-use super::{Bus, Cpu, Operation};
+use super::{CpuCore, Operation};
 
 pub struct XXX {}
 
 impl Operation for XXX {
-    fn run(&self, _: &mut Cpu, _: &Bus) -> u8 {
+    fn run(&self, _: &mut CpuCore) -> u8 {
         0
     }
 }
