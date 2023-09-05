@@ -36,11 +36,11 @@ async fn main() {
 
     let bus = Rc::new(RefCell::new(bus));
     let ref_bus = Rc::downgrade(&bus);
-    bus.borrow_mut().cpu.core.register_bus(ref_bus);
+    let mut cpu = Cpu::new(ref_bus);
 
-    bus.borrow_mut().cpu.reset();
+    cpu.reset();
 
-    let disas = bus.borrow().cpu.disassemble(0x0000, 0xFFFF);
+    let disas = cpu.disassemble(0x0000, 0xFFFF);
 
 
     // let image = Image::gen_image_color(w as u16, h as u16, RED);
@@ -62,6 +62,19 @@ async fn main() {
         if is_key_down(KeyCode::Q) || is_key_down(KeyCode::Escape) {
             break;
         }
+
+        if is_key_pressed(KeyCode::Space) {
+            loop {
+                cpu.clock();
+                if cpu.complete() { break }
+            }
+        }
+
+        if is_key_pressed(KeyCode::R) {
+            cpu.reset()
+        }
+
+        // TODO: IRQ / NMI
 
         clear_background(BLUE);
 
@@ -88,11 +101,11 @@ async fn main() {
             &font_params,
         )
         .await;
-        draw_cpu(600.0, MAC_BORDER + 10.0, &bus.borrow().cpu, &font_params).await;
+        draw_cpu(600.0, MAC_BORDER + 10.0, &cpu, &font_params).await;
         draw_code(
             600.0,
             MAC_BORDER + 10.0 + 7.0 * H_STEP,
-            0x7000,
+            cpu.core.pc,
             26,
             &disas,
             &font_params,

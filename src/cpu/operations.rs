@@ -109,7 +109,7 @@ pub struct DEX {}
 
 impl Operation for DEX {
     fn run(&self, _opcodes: &HashMap<u8, Opcode>, cpu: &mut CpuCore) -> u8 {
-        cpu.x -= 1;
+        cpu.x = cpu.x.wrapping_sub(1);
         cpu.set_flag(Flags::Z, cpu.x == 0x00);
         cpu.set_flag(Flags::N, (cpu.x & 0x80) != 0);
         0
@@ -120,7 +120,7 @@ pub struct DEY {}
 
 impl Operation for DEY {
     fn run(&self, _opcodes: &HashMap<u8, Opcode>, cpu: &mut CpuCore) -> u8 {
-        cpu.y -= 1;
+        cpu.y = cpu.y.wrapping_sub(1);
         cpu.set_flag(Flags::Z, cpu.y == 0x00);
         cpu.set_flag(Flags::N, (cpu.y & 0x80) != 0);
         0
@@ -133,7 +133,7 @@ impl Operation for BNE {
     fn run(&self, _opcodes: &HashMap<u8, Opcode>, cpu: &mut CpuCore) -> u8 {
         if !cpu.get_flag(Flags::Z) {
             cpu.cycles += 1;
-            cpu.addr_abs = cpu.pc + cpu.addr_rel;
+            cpu.addr_abs = cpu.pc.wrapping_add(cpu.addr_rel);
 
             if (cpu.addr_abs & 0xFF00) != (cpu.pc & 0xFF00) {
                 cpu.cycles += 1

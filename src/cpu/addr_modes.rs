@@ -57,7 +57,7 @@ pub struct ZPX {}
 impl AddrMode for ZPX {
     fn run(&self, cpu: &mut CpuCore) -> u8 {
         cpu.addr_abs = cpu.read(cpu.pc) as u16;
-        cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.x as u16).0;
+        cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.x as u16);
         cpu.addr_abs &= 0x00FF;
         cpu.pc += 1;
         0
@@ -71,7 +71,7 @@ pub struct ZPY {}
 impl AddrMode for ZPY {
     fn run(&self, cpu: &mut CpuCore) -> u8 {
         cpu.addr_abs = cpu.read(cpu.pc) as u16;
-        cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.y as u16).0;
+        cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.y as u16);
         cpu.addr_abs &= 0x00FF;
         cpu.pc += 1;
         0
@@ -122,7 +122,7 @@ impl AddrMode for ABX {
         cpu.pc += 1;
 
         cpu.addr_abs = (high << 8) | low;
-        cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.x as u16).0;
+        cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.x as u16);
 
         // maybe an extra clock cycle is necessary
         let extra_clock_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
@@ -142,7 +142,7 @@ impl AddrMode for ABY {
         cpu.pc += 1;
 
         cpu.addr_abs = (high << 8) | low;
-        cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.y as u16).0;
+        cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.y as u16);
 
         // maybe an extra clock cycle is necessary
         let extra_clock_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
@@ -210,7 +210,7 @@ impl AddrMode for IZY {
         let high: u16 = cpu.read(ptr + 1) as u16;
 
         cpu.addr_abs = (high << 8) | low;
-        cpu.addr_abs = cpu.addr_abs.overflowing_add(cpu.y as u16).0;
+        cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.y as u16);
 
         let extra_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
         return extra_cycle as u8;

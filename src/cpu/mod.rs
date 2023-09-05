@@ -74,11 +74,11 @@ pub struct CpuCore {
     clock_count: usize,
 
     // Link to the underlying bus
-    bus: Option<Weak<RefCell<Bus>>>,
+    bus: Weak<RefCell<Bus>>,
 }
 
 impl CpuCore {
-    fn new() -> Self {
+    fn new(bus: Weak<RefCell<Bus>>) -> Self {
         Self {
             a: 0,
             x: 0,
@@ -93,31 +93,21 @@ impl CpuCore {
             opcode: 0,
             cycles: 0,
             clock_count: 0,
-            bus: None,
+            bus,
         }
     }
 
-    pub fn register_bus(&mut self, bus: Weak<RefCell<Bus>>) {
-        self.bus = Some(bus)
-    }
-
     fn read(&self, addr: u16) -> u8 {
-        match &self.bus {
-            None => panic!("CPU/read: No Bus"),
-            Some(bus) => match bus.upgrade() {
-                None => panic!("CPU/read: Bus has been dropped"),
-                Some(bus) => bus.borrow().read(addr),
-            },
+        match &self.bus.upgrade() {
+            None => panic!("CPU/read: Bus has been dropped"),
+            Some(bus) => bus.borrow().read(addr),
         }
     }
 
     fn write(&self, addr: u16, value: u8) {
-        match &self.bus {
-            None => panic!("CPU/write: No Bus"),
-            Some(bus) => match bus.upgrade() {
-                None => panic!("CPU/write: Bus has been dropped"),
-                Some(bus) => bus.borrow_mut().write(addr, value),
-            },
+        match &self.bus.upgrade() {
+            None => panic!("CPU/write: Bus has been dropped"),
+            Some(bus) => bus.borrow_mut().write(addr, value),
         }
     }
 
@@ -140,8 +130,8 @@ impl CpuCore {
             Some(opcode) => opcode,
         };
         match addr_mode.kind() {
-            addr_modes::Kind::IMP => self.fetched = self.read(self.addr_abs),
-            _ => {}
+            addr_modes::Kind::IMP => {},
+            _ => self.fetched = self.read(self.addr_abs),
         }
         self.fetched
     }
@@ -165,6 +155,10 @@ impl CpuCore {
 
         self.cycles = 8;
     }
+
+    fn complete(&self) -> bool {
+        self.cycles == 0
+    }
 }
 
 pub struct Cpu {
@@ -179,7 +173,7 @@ macro_rules! add_opcode {
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(bus: Weak<RefCell<Bus>>) -> Self {
         let mut opcodes = HashMap::new();
         
         /* opcode info mostly comes from 
@@ -269,7 +263,7 @@ impl Cpu {
         add_opcode!(opcodes, 0xD0, opcode!(BNE, REL, 3));
 
         Self {
-            core: CpuCore::new(),
+            core: CpuCore::new(bus),
             opcodes,
         }
     }
@@ -315,6 +309,10 @@ impl Cpu {
         self.core.reset()
     }
 
+    pub fn complete(&self) -> bool {
+        self.core.complete()
+    }
+
     pub fn disassemble(&self, start_addr: u16, stop_addr: u16) -> BTreeMap<u16, String> {
         let mut addr = start_addr;
         let mut lines = BTreeMap::new();
@@ -336,6 +334,7 @@ impl Cpu {
                 Some(opcode) => opcode,
             };
 
+            if addr == 0xFFFF { break }
             addr += 1;
             line = format!("{}{} ", line, name);
 
@@ -414,10 +413,12 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::rc::Rc;
 
     #[test]
     fn test_get_empty_flag() {
-        let cpu = CpuCore::new();
+        let bus = Rc::new(RefCell::new(Bus::new()));
+        let cpu = CpuCore::new(Rc::downgrade(&bus));
         assert_eq!(cpu.get_flag(Flags::C), false);
         assert_eq!(cpu.get_flag(Flags::Z), false);
         assert_eq!(cpu.get_flag(Flags::I), false);
@@ -430,7 +431,8 @@ mod tests {
 
     #[test]
     fn test_set_get_flags() {
-        let mut cpu = CpuCore::new();
+        let bus = Rc::new(RefCell::new(Bus::new()));
+        let mut cpu = CpuCore::new(Rc::downgrade(&bus));
         cpu.set_flag(Flags::C, true);
         cpu.set_flag(Flags::V, true);
         assert_eq!(cpu.get_flag(Flags::C), true);
@@ -445,7 +447,8 @@ mod tests {
 
     #[test]
     fn test_set_get_flags2() {
-        let mut cpu = CpuCore::new();
+        let bus = Rc::new(RefCell::new(Bus::new()));
+        let mut cpu = CpuCore::new(Rc::downgrade(&bus));
         cpu.set_flag(Flags::I | Flags::N, true);
         assert_eq!(cpu.get_flag(Flags::C), false);
         assert_eq!(cpu.get_flag(Flags::Z), false);
