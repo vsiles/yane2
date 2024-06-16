@@ -139,26 +139,40 @@ pub struct INes {
 
 impl INes {
     pub fn new(file: &Path) -> Result<INes> {
+        println!("Trying to load iNes file: {}", file.display());
         let mut bytes = fs::read(file)?;
+        let total_bytes = bytes.len();
+        println!("File size: {total_bytes} bytes");
         ensure!(bytes.len() > 16, "Missing iNes header");
         let mut header_bytes = [0; 16];
         header_bytes.copy_from_slice(&bytes[0..16]);
         bytes = bytes.split_off(16);
 
         let header = Header::new(header_bytes)?;
+        println!("Debug header: {header:?}");
+        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - 16);
+        let total_bytes = bytes.len();
 
         let trainer = header.trainer_512.then_some({
+            println!("Trainer detected");
             let mut trainer_bytes = [0; 512];
             trainer_bytes.copy_from_slice(&bytes[0..512]);
             bytes = bytes.split_off(512);
+            println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - 512);
             trainer_bytes
         });
+        let total_bytes = bytes.len();
 
+        println!("Reading PRG ROM ({} bytes)", header.prg_rom_size);
         let rest = bytes.split_off(header.prg_rom_size);
         let prg_rom = bytes;
         bytes = rest;
+        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - header.prg_rom_size);
+        let total_bytes = bytes.len();
 
+        println!("Reading CHR ROM ({} bytes)", header.chr_rom_size);
         let _rest = bytes.split_off(header.chr_rom_size);
+        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - header.chr_rom_size);
         let chr_rom = bytes;
 
         Ok(Self {
