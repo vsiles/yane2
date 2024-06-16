@@ -1,19 +1,40 @@
 use crate::miniquad::log;
 use macroquad::prelude::*;
 use std::collections::BTreeMap;
+use clap::{Parser, Subcommand};
+use std::path::{Path, PathBuf};
+use eyre::Result;
 
 mod bus;
 mod cpu;
+mod ines;
 
 use bus::Bus;
 use cpu::Cpu;
+use ines::INes;
 
 const MAC_BORDER: f32 = 28.0;
 const FONT_SIZE: u16 = 16;
 const H_STEP: f32 = 1.0 + FONT_SIZE as f32;
 
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    test: TestCommand,
+}
+
+#[derive(Subcommand)]
+enum TestCommand {
+    Test0,
+    Nestest {
+        #[arg(short, long)]
+        path: PathBuf,
+    },
+}
+
 #[macroquad::main("Yane")]
-async fn main() {
+async fn main() -> Result<()> {
     request_new_screen_size(1024.0, 768.0 + MAC_BORDER);
 
     next_frame().await; // acknowledge new screen size
@@ -28,13 +49,12 @@ async fn main() {
         screen_height()
     );
 
-    let mut bus = Bus::new();
+    let cli = Cli::parse();
 
-    setup_ram(&mut bus);
-
-    let mut cpu = Cpu::new(bus);
-
-    cpu.reset();
+    let mut cpu = match cli.test {
+        TestCommand::Test0 => test0(),
+        TestCommand::Nestest { path } => nestest(&path)?,
+    };
 
     let disas = cpu.disassemble(0x0000, 0xFFFF);
 
@@ -118,9 +138,13 @@ async fn main() {
 
         next_frame().await
     }
+
+    Ok(())
 }
 
-fn setup_ram(bus: &mut Bus) {
+fn test0() -> Cpu {
+    let mut bus = Bus::new();
+
     // TODO: implement proper ROM loading
     // example program is from https://github.com/OneLoneCoder/olcNES
 
@@ -137,6 +161,28 @@ fn setup_ram(bus: &mut Bus) {
     // Set Reset Vector
     bus.ram[0xFFFC] = 0x00;
     bus.ram[0xFFFD] = 0x80;
+
+    let mut cpu = Cpu::new(bus);
+    cpu.reset();
+    cpu
+}
+
+fn nestest(path: &Path) -> Result<Cpu> {
+    let mut bus = Bus::new();
+
+    let nestest = INes::new(path)?;
+
+    eprintln!("{:?}", nestest.header);
+
+    // Set Reset Vector
+    bus.ram[0xFFFC] = 0x00;
+    bus.ram[0xFFFD] = 0x80;
+
+    let mut cpu = Cpu::new(bus);
+    cpu.reset();
+    cpu.core.pc = 0xC000;
+    Ok(cpu)
+
 }
 
 async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
