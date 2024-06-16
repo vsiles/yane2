@@ -2,7 +2,7 @@
 //! <https://www.nesdev.org/wiki/INES>
 //! This file is just an encoding of the iNes file format
 
-use eyre::{Result, ensure};
+use eyre::{ensure, Result};
 use std::{fs, path::Path};
 
 /// The format of the header is as follows:
@@ -15,7 +15,7 @@ use std::{fs, path::Path};
 /// 8 Flags 8 – PRG-RAM size (rarely used extension)
 /// 9 Flags 9 – TV system (rarely used extension)
 /// 10 Flags 10 – TV system, PRG-RAM presence (unofficial, rarely used extension)
-/// 11-15 Unused padding (should be filled with zero, but some rippers put their name across bytes 7-15) 
+/// 11-15 Unused padding (should be filled with zero, but some rippers put their name across bytes 7-15)
 #[derive(Debug)]
 pub struct Header {
     prg_rom_size: usize, // bytes
@@ -37,7 +37,7 @@ pub struct Header {
     // Flag 9
     tv_system: TvSystem,
     // Flag 10
-    // This byte is not part of the official specification, and relatively few emulators honor it. 
+    // This byte is not part of the official specification, and relatively few emulators honor it.
     tv_system_ext: TvSystemExt,
     high_prg_ram: bool, // PRG RAM ($6000-$7FFF) (0: present; 1: not present)
     bus_conflicts: bool,
@@ -63,7 +63,7 @@ impl Header {
         let nametable_arrangement = if is_bit_set(flag6, 0) {
             NametableArrangement::Horizontal
         } else {
-                NametableArrangement::Vertical
+            NametableArrangement::Vertical
         };
         let battery_backed_prg_ram = is_bit_set(flag6, 1);
         let trainer_512 = is_bit_set(flag6, 2);
@@ -79,7 +79,7 @@ impl Header {
 
         let mapper_number = low_mapper_number | (high_mapper_number << 4);
         // TODO: double check
-        let prg_ram_size = (if header[8] == 0 { 1 } else { header[8] as usize }) * 8 * 1024;
+        let prg_ram_size = (header[8] as usize) * 8 * 1024;
 
         let flag9 = header[9];
         let tv_system = if is_bit_set(flag9, 0) {
@@ -87,7 +87,10 @@ impl Header {
         } else {
             TvSystem::Pal
         };
-        ensure!((flag9 >> 1) & 0b01111111 == 0, "invalid flag9, expecting zeroes");
+        ensure!(
+            (flag9 >> 1) & 0b01111111 == 0,
+            "invalid flag9, expecting zeroes"
+        );
 
         let flag10 = header[10];
         let tv_system_ext = match flag10 & 0b11 {
@@ -119,14 +122,14 @@ impl Header {
 }
 
 /// An iNES file consists of the following sections, in order:
-/// 
+///
 ///     Header (16 bytes)
 ///     Trainer, if present (0 or 512 bytes)
 ///     PRG ROM data (16384 * x bytes)
 ///     CHR ROM data, if present (8192 * y bytes)
 ///     PlayChoice INST-ROM, if present (0 or 8192 bytes)
 ///     PlayChoice PROM, if present (16 bytes Data, 16 bytes CounterOut) (this is often missing; see PC10 ROM-Images for details)
-/// 
+///
 /// Some ROM-Images additionally contain a 128-byte (or sometimes 127-byte) title at the end of the file.
 #[derive(Debug)]
 pub struct INes {
@@ -150,7 +153,11 @@ impl INes {
 
         let header = Header::new(header_bytes)?;
         println!("Debug header: {header:?}");
-        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - 16);
+        println!(
+            "Debug remaining bytes: {} (expected {})",
+            bytes.len(),
+            total_bytes - 16
+        );
         let total_bytes = bytes.len();
 
         let trainer = header.trainer_512.then_some({
@@ -158,7 +165,11 @@ impl INes {
             let mut trainer_bytes = [0; 512];
             trainer_bytes.copy_from_slice(&bytes[0..512]);
             bytes = bytes.split_off(512);
-            println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - 512);
+            println!(
+                "Debug remaining bytes: {} (expected {})",
+                bytes.len(),
+                total_bytes - 512
+            );
             trainer_bytes
         });
         let total_bytes = bytes.len();
@@ -167,12 +178,20 @@ impl INes {
         let rest = bytes.split_off(header.prg_rom_size);
         let prg_rom = bytes;
         bytes = rest;
-        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - header.prg_rom_size);
+        println!(
+            "Debug remaining bytes: {} (expected {})",
+            bytes.len(),
+            total_bytes - header.prg_rom_size
+        );
         let total_bytes = bytes.len();
 
         println!("Reading CHR ROM ({} bytes)", header.chr_rom_size);
         let _rest = bytes.split_off(header.chr_rom_size);
-        println!("Debug remaining bytes: {} (expected {})", bytes.len(), total_bytes - header.chr_rom_size);
+        println!(
+            "Debug remaining bytes: {} (expected {})",
+            bytes.len(),
+            total_bytes - header.chr_rom_size
+        );
         let chr_rom = bytes;
 
         Ok(Self {
@@ -186,7 +205,7 @@ impl INes {
 
 #[derive(Debug)]
 pub enum NametableArrangement {
-    Vertical, // PPU A11
+    Vertical,   // PPU A11
     Horizontal, // PPU A10
 }
 
@@ -200,5 +219,5 @@ pub enum TvSystem {
 #[derive(Debug)]
 pub enum TvSystemExt {
     Legacy(TvSystem),
-    Dual
+    Dual,
 }

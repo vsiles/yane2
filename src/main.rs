@@ -1,9 +1,9 @@
 use crate::miniquad::log;
+use clap::{Parser, Subcommand};
+use eyre::Result;
 use macroquad::prelude::*;
 use std::collections::BTreeMap;
-use clap::{Parser, Subcommand};
 use std::path::{Path, PathBuf};
-use eyre::Result;
 
 mod bus;
 mod cpu;
@@ -182,7 +182,6 @@ fn nestest(path: &Path) -> Result<Cpu> {
     cpu.reset();
     cpu.core.pc = 0xC000;
     Ok(cpu)
-
 }
 
 async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
