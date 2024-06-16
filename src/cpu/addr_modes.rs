@@ -1,3 +1,4 @@
+#![allow(clippy::upper_case_acronyms)]
 use super::{AddrMode, CpuCore};
 
 #[derive(PartialEq)]
@@ -213,7 +214,7 @@ impl AddrMode for IZY {
         cpu.addr_abs = cpu.addr_abs.wrapping_add(cpu.y as u16);
 
         let extra_cycle = (cpu.addr_abs & 0xFF00) != (high << 8);
-        return extra_cycle as u8;
+        extra_cycle as u8
     }
     fn kind(&self) -> Kind {
         Kind::IZY

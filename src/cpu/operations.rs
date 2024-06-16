@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+#![allow(clippy::upper_case_acronyms)]
 use super::{CpuCore, Flags, Opcode, Operation};
-
+use std::collections::HashMap;
 
 pub struct XXX {}
 
@@ -150,13 +150,8 @@ pub struct NOP {}
 impl Operation for NOP {
     fn run(&self, _opcodes: &HashMap<u8, Opcode>, cpu: &mut CpuCore) -> u8 {
         match cpu.opcode {
-            0x1C |
-            0x3C |
-            0x5C |
-            0x7C | 
-            0xDC |
-            0xFC => 1,
-            _ => 0
+            0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => 1,
+            _ => 0,
         }
     }
 }

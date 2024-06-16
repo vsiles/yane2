@@ -1,8 +1,6 @@
 use crate::miniquad::log;
 use macroquad::prelude::*;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
 mod bus;
 mod cpu;
@@ -34,14 +32,11 @@ async fn main() {
 
     setup_ram(&mut bus);
 
-    let bus = Rc::new(RefCell::new(bus));
-    let ref_bus = Rc::downgrade(&bus);
-    let mut cpu = Cpu::new(ref_bus);
+    let mut cpu = Cpu::new(bus);
 
     cpu.reset();
 
     let disas = cpu.disassemble(0x0000, 0xFFFF);
-
 
     // let image = Image::gen_image_color(w as u16, h as u16, RED);
     // let texture = Texture2D::from_image(&image);
@@ -66,7 +61,9 @@ async fn main() {
         if is_key_pressed(KeyCode::Space) {
             loop {
                 cpu.clock();
-                if cpu.complete() { break }
+                if cpu.complete() {
+                    break;
+                }
             }
         }
 
@@ -85,22 +82,22 @@ async fn main() {
             10.0,
             MAC_BORDER + 10.0,
             0x0000,
-            &bus.borrow(),
+            &cpu.bus().read().expect("Failed to get bus"),
             16,
             16,
             &font_params,
-        )
-        .await;
+        );
+
         draw_ram(
             10.0,
             20.0 * H_STEP + 10.0,
             0x8000,
-            &bus.borrow(),
+            &cpu.bus().read().expect("Failed to get bus"),
             16,
             16,
             &font_params,
-        )
-        .await;
+        );
+
         draw_cpu(600.0, MAC_BORDER + 10.0, &cpu, &font_params).await;
         draw_code(
             600.0,
@@ -127,7 +124,9 @@ fn setup_ram(bus: &mut Bus) {
     // TODO: implement proper ROM loading
     // example program is from https://github.com/OneLoneCoder/olcNES
 
-    let program = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA".split(' ');
+    let program =
+        "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA"
+            .split(' ');
     let mut addr = 0x8000;
     for s in program {
         let byte = u8::from_str_radix(s, 16).unwrap();
@@ -280,7 +279,7 @@ async fn draw_cpu(x: f32, y: f32, cpu: &Cpu, font_params: &TextParams<'_>) {
     );
 }
 
-async fn draw_ram(
+fn draw_ram(
     x: f32,
     y: f32,
     ram_addr: u16,

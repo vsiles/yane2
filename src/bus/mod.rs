@@ -13,15 +13,15 @@ impl Bus {
     }
 
     pub fn write(&mut self, addr: u16, data: u8) {
-        if addr >= 0x0000 && addr <= 0xFFFF {
+        if (0x0000..=0xFFFF).contains(&addr) {
             self.ram[addr as usize] = data
         }
     }
 
     pub fn read(&self, addr: u16) -> u8 {
-        if addr >= 0x0000 && addr <= 0xFFFF {
+        if (0x0000..=0xFFFF).contains(&addr) {
             return self.ram[addr as usize];
         }
-        return 0x00;
+        0x00
     }
 }
